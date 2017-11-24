@@ -7,6 +7,7 @@ import socket
 from pyrad import host
 from pyrad import packet
 import logging
+from netaddr import *
 
 
 logger = logging.getLogger('pyrad')
@@ -15,7 +16,7 @@ logger = logging.getLogger('pyrad')
 class RemoteHost:
     """Remote RADIUS capable host we can talk to."""
 
-    def __init__(self, address, secret, name, authport=1812, acctport=1813, coaport=3799):
+    def __init__(self, address, secret, name, authport=1812, acctport=1813, coaport=3799, subnet="10.0.0.1/24"):
         """Constructor.
 
         :param   address: IP address
@@ -31,6 +32,10 @@ class RemoteHost:
         :param   coaport: port used for CoA packets
         :type    coaport: integer
         """
+        if(IPAddress(address) not in IPNetwork(subnet)):
+            raise ValueError("Address not in specified subnet")
+
+        self.subnet = subnet
         self.address = address
         self.secret = secret
         self.authport = authport
@@ -88,10 +93,14 @@ class Server(host.Host):
         :type    coa_enabled: bool
         """
         host.Host.__init__(self, authport, acctport, coaport, dict)
+        
+        #Set network mask here instead of 'hosts'?
         if hosts is None:
             self.hosts = {}
         else:
             self.hosts = hosts
+
+
 
         self.auth_enabled = auth_enabled
         self.authfds = []
@@ -179,6 +188,8 @@ class Server(host.Host):
         :param pkt: packet to process
         :type  pkt: Packet class instance
         """
+
+        #Check if source[0] is within correct subnet?
         if pkt.source[0] not in self.hosts:
             raise ServerPacketError('Received packet from unknown host')
 
@@ -197,6 +208,9 @@ class Server(host.Host):
         :param pkt: packet to process
         :type  pkt: Packet class instance
         """
+        
+        #Check if source[0] is within correct subnet?
+        print("HANDLE PACKET WHATEVER: ", pkt.source[0])
         if pkt.source[0] not in self.hosts:
             raise ServerPacketError('Received packet from unknown host')
 
