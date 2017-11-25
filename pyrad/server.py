@@ -16,7 +16,7 @@ logger = logging.getLogger('pyrad')
 class RemoteHost:
     """Remote RADIUS capable host we can talk to."""
 
-    def __init__(self, address, secret, name, authport=1812, acctport=1813, coaport=3799, subnet="10.0.0.1/24"):
+    def __init__(self, address, secret, name, authport=1812, acctport=1813, coaport=3799):
         """Constructor.
 
         :param   address: IP address
@@ -32,9 +32,6 @@ class RemoteHost:
         :param   coaport: port used for CoA packets
         :type    coaport: integer
         """
-        if(IPAddress(address) not in IPNetwork(subnet)):
-            raise ValueError("Address not in specified subnet")
-
         self.subnet = subnet
         self.address = address
         self.secret = secret
@@ -70,7 +67,8 @@ class Server(host.Host):
     MaxPacketSize = 8192
 
     def __init__(self, addresses=[], authport=1812, acctport=1813, coaport=3799,
-                 hosts=None, dict=None, auth_enabled=True, acct_enabled=True, coa_enabled=False):
+                 hosts=None, dict=None, auth_enabled=True, acct_enabled=True, 
+                 coa_enabled=False, skip_host_checking=False):
         """Constructor.
 
         :param     addresses: IP addresses to listen on
@@ -91,6 +89,8 @@ class Server(host.Host):
         :type   acct_enabled: bool
         :param   coa_enabled: enable coa server (default False)
         :type    coa_enabled: bool
+        :param skip_host_checking: Set to True if you dont want to check if host is defined (default False)
+        :type skip_host_checking: bool
         """
         host.Host.__init__(self, authport, acctport, coaport, dict)
         
@@ -99,6 +99,11 @@ class Server(host.Host):
             self.hosts = {}
         else:
             self.hosts = hosts
+        
+        #if hosts == None:
+        #    self.hosts = IPNetwork("0.0.0.0/32")
+        #else:
+        #    self.hosts = IPNetwork(hosts)
 
 
 
@@ -108,6 +113,7 @@ class Server(host.Host):
         self.acctfds = []
         self.coa_enabled = coa_enabled
         self.coafds = []
+        self.skip_host_checking = skip_host_checking
 
         for addr in addresses:
             self.BindToAddress(addr)
@@ -190,9 +196,11 @@ class Server(host.Host):
         """
 
         #Check if source[0] is within correct subnet?
-        if pkt.source[0] not in self.hosts:
-            raise ServerPacketError('Received packet from unknown host')
+        if not self.skip_host_checking:
+            if pkt.source[0] not in self.hosts:
+                raise ServerPacketError('Received packet from unknown host')
 
+        #THIS WILL NOT WORK
         pkt.secret = self.hosts[pkt.source[0]].secret
         if pkt.code != packet.AccessRequest:
             raise ServerPacketError(
@@ -208,11 +216,10 @@ class Server(host.Host):
         :param pkt: packet to process
         :type  pkt: Packet class instance
         """
-        
-        #Check if source[0] is within correct subnet?
-        print("HANDLE PACKET WHATEVER: ", pkt.source[0])
-        if pkt.source[0] not in self.hosts:
-            raise ServerPacketError('Received packet from unknown host')
+
+        if not self.skip_host_checking:        
+            if pkt.source[0] not in self.hosts:
+                raise ServerPacketError('Received packet from unknown host')
 
         pkt.secret = self.hosts[pkt.source[0]].secret
         if pkt.code not in [packet.AccountingRequest,
@@ -230,9 +237,10 @@ class Server(host.Host):
         :param pkt: packet to process
         :type  pkt: Packet class instance
         """
-        if pkt.source[0] not in self.hosts:
-            raise ServerPacketError('Received packet from unknown host')
-
+        if not self.skip_host_checking:
+            if pkt.source[0] not in self.hosts:
+                raise ServerPacketError('Received packet from unknown host')
+        
         pkt.secret = self.hosts[pkt.source[0]].secret
         if pkt.code == packet.CoARequest:
             self.HandleCoaPacket(pkt)

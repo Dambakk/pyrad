@@ -9,6 +9,7 @@ print("version: ", ip.version)
 print("IP:", ip.ip)
 print(ip.broadcast)
 print(ip.netmask)
+print(ip.secret)
 
 
 #if (IPAddress("192.168.1.1") in IPNetwork("192.168.0.0/24")):
@@ -16,5 +17,5 @@ print(ip.netmask)
 #else:
 #	print("Ip is not within subnet")
 
-remoteHost = RemoteHost("10.0.0.138", "pass", "host", 80)
-server = Server()
+remoteHost = RemoteHost("69.69.69.69", "pwd", "host")
+server = Server(hosts={"192.168.0.0/24": remoteHost})
